@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="GSoC_Proposal-jvm-1.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/build/libs</output-path>
+    <root id="archive" name="GSoC_Proposal-jvm-1.0-SNAPSHOT.jar">
+      <element id="module-output" name="GSoC_Proposal.jvmMain" />
+    </root>
+  </artifact>
+</component>
