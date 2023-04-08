@@ -1,11 +1,12 @@
 plugins {
-    kotlin("multiplatform") version "1.7.10"
-    id("com.android.application")
-    id("kotlin-android-extensions")
+    kotlin("multiplatform") version "1.8.20"
+    id("com.android.library")
+    id("maven-publish")
+    //id("kotlin-android-extensions")
 }
 
 group = "me.lloydna"
-version = "1.0-SNAPSHOT"
+version = "0.0.1"
 
 repositories {
     google()
@@ -13,48 +14,42 @@ repositories {
 }
 
 kotlin {
-    jvm {
-        compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
-        }
-        testRuns["test"].executionTask.configure {
-            useJUnitPlatform()
-        }
-    }
-    val hostOs = System.getProperty("os.name")
-    val isMingwX64 = hostOs.startsWith("Windows")
-    val nativeTarget = when {
-        hostOs == "Mac OS X" -> macosX64("native")
-        hostOs == "Linux" -> linuxX64("native")
-        isMingwX64 -> mingwX64("native")
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
+    ios()
+
+    android{
+        publishAllLibraryVariants()
     }
 
-    
-    iosArm64("iOS") {
-        binaries {
-            framework {
-                baseName = "library"
-            }
-        }
-    }
-    android()
     sourceSets {
         val commonMain by getting
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
             }
+
+
         }
-        val jvmMain by getting
-        val jvmTest by getting
-        val nativeMain by getting
-        val nativeTest by getting
-        val iOSMain by getting
-        val iOSTest by getting
+
+        val iosX64Main by sourceSets.getting
+        val iosArm64Main by sourceSets.getting
+        val iosX64Test by sourceSets.getting
+        val iosArm64Test by sourceSets.getting
+        val iosTest by getting{
+            dependsOn(commonTest)
+            iosX64Test.dependsOn(this)
+            iosArm64Test.dependsOn(this)
+        }
+        val iosMain by getting{
+            dependsOn(commonMain)
+            iosX64Main.dependsOn(this)
+            iosArm64Main.dependsOn(this)
+        }
+
+        tasks.getByName("allTests").dependsOn(iosTest)
+
         val androidMain by getting {
             dependencies {
-                implementation("com.google.android.material:material:1.5.0")
+                implementation(kotlin("stdlib-jdk8"))
             }
         }
         val androidTest by getting {
@@ -69,7 +64,7 @@ android {
     compileSdkVersion(31)
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
     defaultConfig {
-        applicationId = "me.lloydna.library"
+        multiDexEnabled = true
         minSdkVersion(24)
         targetSdkVersion(31)
     }
@@ -77,4 +72,26 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
+
+val iosTest: Task by tasks.creating {
+    val device = project.findProperty("iosDevice")?.toString() ?: "iPhone 8"
+    val testExecutable = kotlin.targets.getByName<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>("iosX64").binaries.getTest("DEBUG")
+    dependsOn(testExecutable.linkTaskName)
+    group = JavaBasePlugin.VERIFICATION_GROUP
+    description = "Runs tests for target 'ios' on an iOS simulator"
+
+    doLast {
+        exec {
+            println(testExecutable.outputFile.absolutePath)
+            commandLine( "xcrun", "simctl", "spawn", "--standalone", device, testExecutable.outputFile.absolutePath)
+        }
+    }
+}
+
+tasks.getByName("allTests").dependsOn(iosTest)
